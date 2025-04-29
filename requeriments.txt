@@ -1,3 +1,3 @@
-Flask
-pikepdf
-pymupdf
+Flask==2.3.2
+pikepdf==7.3.0
+PyMuPDF==1.22.5
