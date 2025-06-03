@@ -1,41 +1,46 @@
 from flask import Flask, request, jsonify
 import os
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter
 
 app = Flask(__name__)
 
 @app.route("/", methods=["GET"])
-def root():
-    return jsonify({"message": "PDF Unlock API is running. POST to /unlock"})
+def home():
+    return jsonify({"message": "PDF Unlocker API is running! POST to /unlock"})
 
 @app.route("/unlock", methods=["POST"])
-def unlock_pdf():
+def unlock_and_extract():
     try:
-        # Recibe el archivo y la contraseña
+        # Recibe archivo y contraseña
         uploaded_file = request.files["file"]
         password = request.form.get("password", "")
 
-        # Guarda el PDF recibido
         input_path = "input.pdf"
         uploaded_file.save(input_path)
 
-        # Lee y desbloquea el PDF usando PyPDF
+        # Desbloquear PDF con pypdf
         reader = PdfReader(input_path)
         if reader.is_encrypted:
             reader.decrypt(password)
 
-        # Extrae todo el texto
-        full_text = []
+        # Crear nuevo PDF desbloqueado
+        writer = PdfWriter()
         for page in reader.pages:
-            txt = page.extract_text() or ""
-            full_text.append(txt)
-        text = "\n\n".join(full_text)
+            writer.add_page(page)
+        with open("unlocked.pdf", "wb") as f_out:
+            writer.write(f_out)
 
-        # Limpia el archivo
+        # Extraer texto del PDF desbloqueado
+        text = ""
+        for page in reader.pages:
+            page_text = page.extract_text() or ""
+            text += page_text + "\n\n"
+
+        # Limpiar archivos temporales
         os.remove(input_path)
+        os.remove("unlocked.pdf")
 
         return jsonify({"text": text})
-
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
