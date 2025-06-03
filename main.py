@@ -6,10 +6,10 @@ app = Flask(__name__)
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"message": "PDF Unlocker + Extractor API is running!"})
+    return jsonify({"message": "PDF Unlocker API is running!"})
 
 @app.route("/unlock", methods=["POST"])
-def unlock_and_extract():
+def unlock_pdf():
     uploaded_file = request.files["file"]
     password = request.form.get("password", "")
 
@@ -17,37 +17,31 @@ def unlock_and_extract():
     unlocked_path = "unlocked.pdf"
     uploaded_file.save(input_path)
 
-    # Intentar desbloquear con PyPDF2
-    reader = PdfReader(input_path)
-    if reader.is_encrypted:
-        try:
-            if reader.decrypt(password) == 0:
-                return jsonify({"error": "Password incorrect or cannot unlock"}), 400
-        except Exception as e:
-            return jsonify({"error": f"Failed to decrypt PDF: {str(e)}"}), 400
+    try:
+        reader = PdfReader(input_path)
+        if reader.is_encrypted:
+            if not reader.decrypt(password):
+                return jsonify({"error": "Failed to decrypt PDF with provided password"}), 400
 
-    # Verificar si tiene páginas
-    if not reader.pages:
-        return jsonify({"error": "No pages found in PDF"}), 400
+        writer = PdfWriter()
+        text = ""
 
-    # Guardar el PDF desbloqueado
-    writer = PdfWriter()
-    for page in reader.pages:
-        writer.add_page(page)
-    with open(unlocked_path, "wb") as f_out:
-        writer.write(f_out)
+        for page in reader.pages:
+            writer.add_page(page)
+            # Extraer texto con PyPDF2 directamente
+            extracted_text = page.extract_text() or ""
+            text += extracted_text + "\n\n"
 
-    # Extraer texto con PyPDF2 directamente (sin pdfplumber)
-    text = ""
-    for page in reader.pages:
-        page_text = page.extract_text() or ""
-        text += page_text + "\n\n"
+        with open(unlocked_path, "wb") as f_out:
+            writer.write(f_out)
 
-    # Limpiar archivos
-    os.remove(input_path)
-    os.remove(unlocked_path)
+        os.remove(input_path)
+        os.remove(unlocked_path)
 
-    return jsonify({"text": text})
+        return jsonify({"text": text})
+
+    except Exception as e:
+        return jsonify({"error": f"Error processing PDF: {str(e)}"}), 500
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "3000"))
