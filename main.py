@@ -28,9 +28,14 @@ def unlock_pdf():
 
         for page in reader.pages:
             writer.add_page(page)
-            # Extraer texto con PyPDF2 directamente
-            extracted_text = page.extract_text() or ""
-            text += extracted_text + "\n\n"
+            # Extraer texto con manejo de errores
+            try:
+                extracted_text = page.extract_text() or ""
+                text += extracted_text + "\n\n"
+            except Exception as e:
+                # Saltar la página problemática sin romper todo
+                print(f"Warning: could not extract text from a page: {str(e)}")
+                continue
 
         with open(unlocked_path, "wb") as f_out:
             writer.write(f_out)
@@ -38,7 +43,7 @@ def unlock_pdf():
         os.remove(input_path)
         os.remove(unlocked_path)
 
-        return jsonify({"text": text})
+        return jsonify({"text": text.strip()})
 
     except Exception as e:
         return jsonify({"error": f"Error processing PDF: {str(e)}"}), 500
